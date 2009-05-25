@@ -5,3 +5,6 @@ all:
 
 clean:
 	rm $(TARGET) temperature.log
+
+install:
+	cp $(TARGET) /usr/local/sbin
