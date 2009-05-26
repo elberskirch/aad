@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <errno.h>
+#include <time.h>
 
 #include <event.h>
 /*******************************
@@ -117,9 +119,12 @@ static void worker(int fd, short event, void *arg) {
     char wbuf[80];
     unsigned char len = 0;
     off_t r;
+    time_t now;
+    char timebuf[40];
      
     buf = read_temperature();    
-   
+    now = time(NULL);
+    strftime(timebuf, 40, "%c", localtime(&now));
     switch(fan_state) {
         case FAN_OFF:
            if( buf >= START_TEMP )
@@ -132,7 +137,8 @@ static void worker(int fd, short event, void *arg) {
     }      
     
     if( logger ) {
-        len = sprintf(wbuf, "[fan:%0d] %d\n",fan_state, buf); 
+        len = sprintf(wbuf, "[%s] fan_state: %d temp: %d deg c\n", 
+                      timebuf, fan_state, buf); 
         if( !demon ) 
             write(1, wbuf, len);
         write(logfile, wbuf, len);
@@ -188,7 +194,8 @@ void start_timer(struct timeval freq) {
 } 
 
 void signal_handler(int signal) {
-    printf("shutting down on signal %02d ...", signal);
+    if( !demon ) 
+        printf("shutting down on signal %02d ...", signal);
     close(port);
     if( logger )
         close(logfile); 
@@ -198,7 +205,8 @@ void signal_handler(int signal) {
 
 int main(int argc, char *argv[]) {
     char dev[] = "/dev/port";
-    char lfile[] = "temperature.log";
+    char lfile[] = "/var/log/aad.log";
+    char errorbuf[80];
     interval.tv_sec = 2;
     // -d : daemonize
     // -i 2 : interval 
@@ -209,16 +217,19 @@ int main(int argc, char *argv[]) {
 
     if( (port = open(dev, O_RDWR)) == -1 ) {
         /* ERROR */
+        strerror(errno,errorbuf,sizeof(errorbuf));
+        perror(errorbuf);
         return -1;
     }
     
-    if( (logfile = open(lfile, O_RDWR|O_CREAT,0644)) == -1 ) {
+    if( (logfile = open(lfile, O_RDWR|O_CREAT,0600)) == -1 ) {
         /* ERROR */
+        strerror(errno,errorbuf,sizeof(errorbuf));
+        perror(errorbuf);
         return -1;
     }
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
-    signal(SIGKILL, signal_handler);
 
     while((c = getopt(argc,argv,"di:ls:")) != -1) {
         switch(c) {
