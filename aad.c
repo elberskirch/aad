@@ -199,7 +199,8 @@ void signal_handler(int signal) {
     close(port);
     if( logger )
         close(logfile); 
-    printf("done\n");
+    if( !demon ) 
+        printf("done\n");
     exit(1);
 }
 
@@ -222,7 +223,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     
-    if( (logfile = open(lfile, O_RDWR|O_CREAT,0600)) == -1 ) {
+    if( (logfile = open(lfile, O_RDWR|O_TRUNC|O_CREAT,0600)) == -1 ) {
         /* ERROR */
         strerror(errno,errorbuf,sizeof(errorbuf));
         perror(errorbuf);
